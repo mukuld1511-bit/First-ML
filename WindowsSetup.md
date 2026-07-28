@@ -31,8 +31,8 @@ py -3.11
 
 Unix
 ##python3
-# python3.11 -m venv /home/hadoop/venv-llm
-# source /home/hadoop/venv-llm/bin/activate
+# python3.11 -m venv /home/mukul/venv-llm
+# source /home/mukul/venv-llm/bin/activate
 # deactivate
 
 pip install pandas

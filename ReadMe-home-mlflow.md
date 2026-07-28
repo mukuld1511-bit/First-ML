@@ -149,9 +149,9 @@ curl -X POST http://localhost:1234/invocations \
 }'
 
 #push image
-docker tag house-price:v1 cnsnoida/house-price:v1
+docker tag house-price:v1 mukuld1511/house-price:v1
 
-docker push cnsnoida/house-price:v1
+docker push mukuld1511/house-price:v1
 
 
 #k8-------------

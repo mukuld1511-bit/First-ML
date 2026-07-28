@@ -11,7 +11,7 @@ docker run -d \
   -p 50000:50000 \
   -v jenkins_home:/var/jenkins_home \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -v /home/hadoop/workspace/mlflow-homePrice:/workspace/mlflow-homePrice \
+  -v /home/mukul/projects/mlops/First-ML:/workspace/mlflow-homePrice \
   jenkins/jenkins
 
  
@@ -39,7 +39,7 @@ docker run -d \
   -p 50000:50000 \
   -v jenkins_home:/var/jenkins_home \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -v /home/hadoop/workspace/mlflow-homePrice:/workspace/mlflow-homePrice \
+  -v /home/mukul/projects/mlops/First-ML:/workspace/mlflow-homePrice \
   jenkins-maven-docker
 
 

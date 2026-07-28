@@ -20,7 +20,7 @@ pipeline {
     }
 
     environment {
-        // Path INSIDE the jen-mvn container, from: -v /home/hadoop/workspace/mlflow-homePrice:/workspace/mlflow-homePrice
+        // Path INSIDE the jen-mvn container, from: -v /home/mukul/projects/mlops/First-ML:/workspace/mlflow-homePrice
         PROJECT_DIR    = "/workspace/mlflow-homePrice"
         EXPERIMENT_ID  = "1"
         IMAGE_NAME     = "house-price"
