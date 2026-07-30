@@ -120,8 +120,8 @@ curl -X POST http://127.0.0.1:1234/invocations \
 python predict.py
 
 9. Deploy 
---make Dockefile
--- check models in Dockerfile
+--make Dockefile -- check models in Dockerfile
+
 docker build -t house-price:v1 .
 
 docker run -d \
@@ -130,6 +130,7 @@ docker run -d \
 house-price:v1
 
 docker images
+
 http://127.0.0.1:1235
 
 #test inside container
@@ -148,7 +149,7 @@ curl -X POST http://localhost:1234/invocations \
 ]
 }'
 
-#push image
+#push image  change Docker ID
 docker tag house-price:v1 mukuld1511/house-price:v1
 
 docker push mukuld1511/house-price:v1
