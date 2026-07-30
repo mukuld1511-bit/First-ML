@@ -1,278 +1,281 @@
 import streamlit as st
 import pandas as pd
 import requests
-import json
 
-# ─── Page Config ───
 st.set_page_config(
-    page_title="GharDaam — AI Property Valuation",
-    page_icon="🏡",
+    page_title="House Price Engine",
+    page_icon="◼",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# ─── Constants ───
 USD_TO_INR = 83.5
 
 def format_inr(amount):
-    """Format number in Indian Lakh/Crore system"""
     if amount >= 1_00_00_000:
-        return f"₹{amount / 1_00_00_000:.2f} Cr"
+        return f"₹ {amount / 1_00_00_000:.2f} Cr"
     elif amount >= 1_00_000:
-        return f"₹{amount / 1_00_000:.2f} L"
+        return f"₹ {amount / 1_00_000:.2f} L"
     else:
-        return f"₹{amount:,.0f}"
+        return f"₹ {amount:,.0f}"
 
-def sqft_to_sqm(sqft):
-    return sqft * 0.0929
-
-# ─── Premium CSS ───
+# ─── Antigravity-Inspired Minimal CSS ───
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
     :root {
-        --bg: #F7F8FC;
-        --card: #FFFFFF;
-        --text: #0B0F1A;
-        --muted: #64748B;
-        --accent: #4F46E5;
-        --accent2: #7C3AED;
-        --border: #E2E8F0;
-        --success: #059669;
+        --white: #FFFFFF;
+        --off-white: #FAFAFA;
+        --ghost: #F5F5F7;
+        --border: #E8E8ED;
+        --muted: #86868B;
+        --text: #1D1D1F;
+        --black: #000000;
+        --accent: #0071E3;
     }
 
-    html, body, [class*="st-"], .stApp {
-        font-family: 'Inter', sans-serif !important;
-        background-color: var(--bg) !important;
+    /* ── Global Reset ── */
+    html, body, [class*="st-"], .stApp,
+    h1, h2, h3, h4, h5, h6, p, span, div, label, li {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
         color: var(--text) !important;
     }
-    
-    h1, h2, h3, h4, h5, h6, label, p, span, div {
-        color: var(--text) !important;
+    .stApp {
+        background: var(--white) !important;
     }
 
-    /* Hero Banner */
-    .hero-banner {
-        background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #EC4899 100%);
-        border-radius: 20px;
-        padding: 40px 48px;
-        margin-bottom: 32px;
-        position: relative;
-        overflow: hidden;
-    }
-    .hero-banner::before {
-        content: '';
-        position: absolute;
-        top: -50%;
-        right: -20%;
-        width: 400px;
-        height: 400px;
-        background: rgba(255,255,255,0.08);
-        border-radius: 50%;
-    }
-    .hero-banner::after {
-        content: '';
-        position: absolute;
-        bottom: -30%;
-        left: 10%;
-        width: 200px;
-        height: 200px;
-        background: rgba(255,255,255,0.05);
-        border-radius: 50%;
-    }
-    .hero-title {
-        font-family: 'Space Grotesk', sans-serif;
-        font-size: 2.8rem;
-        font-weight: 700;
-        color: #FFFFFF !important;
-        letter-spacing: -1px;
-        margin: 0;
-        line-height: 1.1;
-    }
-    .hero-sub {
-        font-size: 1.05rem;
-        color: rgba(255,255,255,0.85) !important;
-        font-weight: 500;
-        margin-top: 8px;
+    /* ── Remove Streamlit chrome ── */
+    #MainMenu, footer, header { visibility: hidden; }
+    .block-container {
+        padding: 3rem 4rem 2rem !important;
+        max-width: 1200px !important;
     }
 
-    /* Glass Card */
-    .glass-card {
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 28px;
-        margin-bottom: 20px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03);
-        transition: box-shadow 0.3s ease;
-    }
-    .glass-card:hover {
-        box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-    }
-
-    .card-header {
-        font-family: 'Space Grotesk', sans-serif;
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: var(--text) !important;
-        margin-bottom: 16px;
+    /* ── Brand Header ── */
+    .brand {
         display: flex;
         align-items: center;
-        gap: 8px;
-    }
-
-    /* Result Card */
-    .result-card {
-        background: linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%);
-        border: 2px solid var(--accent);
-        border-radius: 20px;
-        padding: 36px 24px;
-        text-align: center;
-        margin-top: 16px;
-        box-shadow: 0 4px 20px rgba(79, 70, 229, 0.12);
-    }
-    .result-label {
-        font-size: 0.8rem;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 3px;
-        color: var(--accent) !important;
-        margin-bottom: 8px;
-    }
-    .result-price {
-        font-family: 'Space Grotesk', sans-serif;
-        font-size: 3.2rem;
-        font-weight: 700;
-        color: #3730A3 !important;
-        letter-spacing: -1px;
-        line-height: 1.15;
-    }
-    .result-usd {
-        font-size: 1rem;
-        color: var(--muted) !important;
-        margin-top: 6px;
-        font-weight: 500;
-    }
-
-    /* Metric Pill */
-    .metric-row {
-        display: flex;
         gap: 12px;
-        margin-top: 16px;
+        margin-bottom: 4px;
     }
-    .metric-pill {
-        flex: 1;
-        background: #F1F5F9;
-        border-radius: 12px;
-        padding: 14px 16px;
-        text-align: center;
+    .brand-dot {
+        width: 10px;
+        height: 10px;
+        background: var(--black);
+        border-radius: 2px;
     }
-    .metric-pill-label {
-        font-size: 0.7rem;
-        font-weight: 700;
+    .brand-name {
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 3px;
         text-transform: uppercase;
-        letter-spacing: 1.5px;
         color: var(--muted) !important;
     }
-    .metric-pill-value {
-        font-family: 'Space Grotesk', sans-serif;
-        font-size: 1.3rem;
+    .hero-h {
+        font-size: 3.6rem;
         font-weight: 700;
-        color: var(--text) !important;
-        margin-top: 2px;
+        letter-spacing: -2.5px;
+        line-height: 1.05;
+        color: var(--black) !important;
+        margin: 16px 0 0 0;
+    }
+    .hero-p {
+        font-size: 1.15rem;
+        font-weight: 400;
+        color: var(--muted) !important;
+        margin: 12px 0 48px 0;
+        line-height: 1.6;
     }
 
-    /* Button */
+    /* ── Divider ── */
+    .line {
+        height: 1px;
+        background: var(--border);
+        margin: 32px 0;
+    }
+
+    /* ── Section Label ── */
+    .section-label {
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 2.5px;
+        text-transform: uppercase;
+        color: var(--muted) !important;
+        margin-bottom: 20px;
+    }
+
+    /* ── Inputs ── */
+    .stNumberInput input, .stTextInput input {
+        background: var(--ghost) !important;
+        border: 1px solid transparent !important;
+        border-radius: 10px !important;
+        color: var(--text) !important;
+        font-family: 'JetBrains Mono', monospace !important;
+        font-size: 0.95rem !important;
+        font-weight: 500 !important;
+        padding: 12px 16px !important;
+        transition: all 0.2s ease !important;
+    }
+    .stNumberInput input:focus, .stTextInput input:focus {
+        background: var(--white) !important;
+        border: 1px solid var(--border) !important;
+        box-shadow: 0 0 0 4px rgba(0,0,0,0.04) !important;
+    }
+
+    /* ── Slider ── */
+    .stSlider [data-baseweb="slider"] {
+        margin-top: 0 !important;
+    }
+
+    /* ── Button ── */
     .stButton > button {
-        background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%) !important;
-        color: #FFFFFF !important;
+        background: var(--black) !important;
+        color: var(--white) !important;
         font-family: 'Inter', sans-serif !important;
-        font-weight: 700 !important;
-        font-size: 1.05rem !important;
-        padding: 16px 32px !important;
-        border-radius: 14px !important;
+        font-weight: 600 !important;
+        font-size: 0.95rem !important;
+        padding: 14px 28px !important;
+        border-radius: 980px !important;
         border: none !important;
-        box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35) !important;
-        transition: all 0.25s ease !important;
         width: 100% !important;
-        letter-spacing: 0.5px !important;
+        letter-spacing: 0.3px !important;
+        transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
+        box-shadow: none !important;
     }
     .stButton > button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 6px 20px rgba(79, 70, 229, 0.45) !important;
+        background: #333336 !important;
+        transform: scale(1.01) !important;
+    }
+    .stButton > button:active {
+        transform: scale(0.98) !important;
     }
 
-    /* Inputs */
-    .stTextInput input, .stNumberInput input {
-        background-color: #FFFFFF !important;
-        color: var(--text) !important;
-        border: 1.5px solid var(--border) !important;
-        border-radius: 10px !important;
-        font-weight: 600 !important;
-        transition: border-color 0.2s ease !important;
-    }
-    .stTextInput input:focus, .stNumberInput input:focus {
-        border-color: var(--accent) !important;
-        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1) !important;
-    }
-
-    /* Footer */
-    .footer-text {
+    /* ── Result ── */
+    .result-wrap {
+        padding: 48px 32px;
         text-align: center;
-        font-size: 0.8rem;
+    }
+    .result-eyebrow {
+        font-size: 0.65rem;
+        font-weight: 600;
+        letter-spacing: 3px;
+        text-transform: uppercase;
         color: var(--muted) !important;
-        margin-top: 40px;
+    }
+    .result-num {
+        font-family: 'Inter', sans-serif;
+        font-size: 4.2rem;
+        font-weight: 700;
+        letter-spacing: -3px;
+        color: var(--black) !important;
+        line-height: 1.1;
+        margin: 12px 0 4px 0;
+    }
+    .result-sub {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.85rem;
+        font-weight: 400;
+        color: var(--muted) !important;
+    }
+
+    /* ── Stat Grid ── */
+    .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1px;
+        background: var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+        margin-top: 32px;
+    }
+    .stat-cell {
+        background: var(--ghost);
         padding: 20px;
+        text-align: center;
+    }
+    .stat-val {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: var(--black) !important;
+    }
+    .stat-key {
+        font-size: 0.65rem;
+        font-weight: 600;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: var(--muted) !important;
+        margin-top: 4px;
+    }
+
+    /* ── Placeholder ── */
+    .placeholder-box {
+        border: 1.5px dashed var(--border);
+        border-radius: 16px;
+        padding: 64px 32px;
+        text-align: center;
+    }
+    .placeholder-icon {
+        font-size: 2rem;
+        margin-bottom: 16px;
+        opacity: 0.3;
+    }
+    .placeholder-text {
+        font-size: 0.9rem;
+        color: var(--muted) !important;
+        line-height: 1.6;
+    }
+
+    /* ── Footer ── */
+    .ft {
+        text-align: center;
+        font-size: 0.7rem;
+        font-weight: 500;
+        letter-spacing: 1px;
+        color: var(--muted) !important;
+        margin-top: 64px;
+        padding-bottom: 24px;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ─── Hero Banner ───
+
+# ═══════════════════════════════════════
+#  HEADER
+# ═══════════════════════════════════════
 st.markdown("""
-<div class="hero-banner">
-    <div class="hero-title">🏡 GharDaam</div>
-    <div class="hero-sub">AI-Powered Property Valuation Engine • Predict house prices instantly in ₹ INR</div>
-</div>
+<div class="brand"><div class="brand-dot"></div><div class="brand-name">House Price Engine</div></div>
+<div class="hero-h">Predict. Price.<br>Instantly.</div>
+<div class="hero-p">AI-powered property valuation — trained on real estate data,<br>served via MLflow, priced in Indian Rupees.</div>
 """, unsafe_allow_html=True)
 
-# ─── Main Layout ───
-col_input, col_result = st.columns([6, 5], gap="large")
 
-with col_input:
-    # Property Details Card
-    st.markdown('<div class="glass-card"><div class="card-header">🏗️ Property Details</div></div>', unsafe_allow_html=True)
+# ═══════════════════════════════════════
+#  LAYOUT
+# ═══════════════════════════════════════
+col_left, col_gap, col_right = st.columns([5, 0.5, 5])
+
+with col_left:
+    st.markdown('<div class="section-label">Property Specifications</div>', unsafe_allow_html=True)
     
-    r1c1, r1c2 = st.columns(2)
-    with r1c1:
-        lot_area = st.number_input("🏞️ Plot Area (sq. ft)", min_value=500, max_value=50000, value=9000, step=250, 
-                                   help="Total plot/lot area in square feet")
-        gr_liv_area = st.number_input("📐 Carpet / Living Area (sq. ft)", min_value=300, max_value=8000, value=1800, step=100,
-                                      help="Above-ground living area in square feet")
-    with r1c2:
-        year_built = st.number_input("📅 Year Built", min_value=1880, max_value=2026, value=2015, step=1,
-                                     help="Year the house was originally constructed")
-        garage_cars = st.selectbox("🚗 Parking / Garage Capacity", options=[0, 1, 2, 3, 4], index=2,
-                                   help="Number of cars the garage can hold")
+    c1, c2 = st.columns(2)
+    with c1:
+        lot_area = st.number_input("Plot Area (sq ft)", min_value=500, max_value=50000, value=9000, step=250)
+        year_built = st.number_input("Year Built", min_value=1880, max_value=2026, value=2015)
+        overall_qual = st.slider("Build Quality", 1, 10, 7)
+    with c2:
+        gr_liv_area = st.number_input("Living Area (sq ft)", min_value=300, max_value=8000, value=1800, step=100)
+        garage_cars = st.selectbox("Parking (Cars)", [0, 1, 2, 3, 4], index=2)
+        overall_cond = st.slider("Condition", 1, 10, 5)
 
-    # Quality Card
-    st.markdown('<div class="glass-card"><div class="card-header">⭐ Quality & Condition Ratings</div></div>', unsafe_allow_html=True)
-    
-    q1, q2 = st.columns(2)
-    with q1:
-        overall_qual = st.slider("Build Quality (1-10)", 1, 10, 7, help="Overall material and finish quality")
-    with q2:
-        overall_cond = st.slider("Maintenance Condition (1-10)", 1, 10, 5, help="Overall condition / maintenance rating")
+    st.markdown('<div class="line"></div>', unsafe_allow_html=True)
+    predict_btn = st.button("Get Valuation →")
 
-    # Predict Button
-    st.markdown("")
-    predict_btn = st.button("🔮 PREDICT PROPERTY VALUE")
-
-with col_result:
-    # API Config (Collapsed by default using expander)
-    with st.expander("⚙️ API Configuration", expanded=False):
-        api_endpoint = st.text_input("Model Endpoint", value="http://localhost:1235/invocations")
-        st.caption("Docker: port 1235 | Kubernetes: port 8080")
+with col_right:
+    # API config hidden in expander
+    with st.expander("Endpoint", expanded=False):
+        api_endpoint = st.text_input("URL", value="http://localhost:1235/invocations", label_visibility="collapsed")
 
     if predict_btn:
         payload = {
@@ -285,82 +288,54 @@ with col_result:
                 "GarageCars": garage_cars
             }]
         }
-
         try:
-            with st.spinner("🔄 Querying AI model..."):
-                response = requests.post(api_endpoint, json=payload, timeout=8)
-                
-            if response.status_code == 200:
-                result = response.json()
-                price_usd = result["predictions"][0]
+            with st.spinner(""):
+                resp = requests.post(api_endpoint, json=payload, timeout=8)
+            if resp.status_code == 200:
+                price_usd = resp.json()["predictions"][0]
                 price_inr = price_usd * USD_TO_INR
-                
-                # Price per sq ft
-                price_per_sqft_inr = price_inr / gr_liv_area if gr_liv_area > 0 else 0
+                price_sqft = price_inr / gr_liv_area if gr_liv_area else 0
                 house_age = 2026 - year_built
-                area_sqm = sqft_to_sqm(gr_liv_area)
-                
-                # Main Result
-                st.markdown(f"""
-                <div class="result-card">
-                    <div class="result-label">ESTIMATED PROPERTY VALUE</div>
-                    <div class="result-price">{format_inr(price_inr)}</div>
-                    <div class="result-usd">≈ ${price_usd:,.0f} USD</div>
-                </div>
-                """, unsafe_allow_html=True)
+                area_sqm = gr_liv_area * 0.0929
 
-                # Metric Pills
                 st.markdown(f"""
-                <div class="metric-row">
-                    <div class="metric-pill">
-                        <div class="metric-pill-label">Price / Sq.Ft</div>
-                        <div class="metric-pill-value">₹{price_per_sqft_inr:,.0f}</div>
+                <div class="result-wrap">
+                    <div class="result-eyebrow">Estimated Value</div>
+                    <div class="result-num">{format_inr(price_inr)}</div>
+                    <div class="result-sub">${price_usd:,.0f} USD</div>
+                </div>
+                <div class="stat-grid">
+                    <div class="stat-cell">
+                        <div class="stat-val">₹{price_sqft:,.0f}</div>
+                        <div class="stat-key">Per Sq Ft</div>
                     </div>
-                    <div class="metric-pill">
-                        <div class="metric-pill-label">House Age</div>
-                        <div class="metric-pill-value">{house_age} Yrs</div>
+                    <div class="stat-cell">
+                        <div class="stat-val">{house_age}y</div>
+                        <div class="stat-key">Age</div>
                     </div>
-                    <div class="metric-pill">
-                        <div class="metric-pill-label">Area (m²)</div>
-                        <div class="metric-pill-value">{area_sqm:.1f}</div>
+                    <div class="stat-cell">
+                        <div class="stat-val">{area_sqm:.0f}</div>
+                        <div class="stat-key">Area m²</div>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-
-                # Input Summary Table
-                st.markdown("")
-                st.markdown("##### 📋 Input Summary")
-                summary_df = pd.DataFrame([{
-                    "Plot Area": f"{lot_area:,} sq.ft",
-                    "Living Area": f"{gr_liv_area:,} sq.ft",
-                    "Year Built": str(year_built),
-                    "Quality": f"{overall_qual}/10",
-                    "Condition": f"{overall_cond}/10",
-                    "Parking": f"{garage_cars} Cars"
-                }])
-                st.dataframe(summary_df, use_container_width=True, hide_index=True)
-
             else:
-                st.error(f"❌ API Error ({response.status_code}): {response.text[:200]}")
+                st.error(f"Error {resp.status_code}")
         except requests.exceptions.ConnectionError:
-            st.error("🔌 Cannot connect to the model API. Make sure Docker container is running:\n\n```bash\ndocker run -d -p 1235:1234 --name house-api house-price:v1\n```")
+            st.error("Cannot reach model API. Run: `docker run -d -p 1235:1234 --name house-api house-price:v1`")
         except Exception as e:
-            st.error(f"⚠️ Unexpected error: {e}")
+            st.error(str(e))
     else:
-        # Placeholder Info Card
         st.markdown("""
-        <div class="glass-card" style="text-align:center; padding: 48px 24px;">
-            <div style="font-size: 3rem; margin-bottom: 12px;">🏡</div>
-            <div style="font-size: 1.1rem; font-weight: 700; color: #0B0F1A !important;">Ready to Predict</div>
-            <div style="font-size: 0.9rem; color: #64748B !important; margin-top: 8px;">
-                Fill in the property details on the left and click<br><strong>PREDICT PROPERTY VALUE</strong> to get AI-estimated price in ₹ INR
+        <div class="placeholder-box">
+            <div class="placeholder-icon">◼</div>
+            <div class="placeholder-text">
+                Configure property details on the left.<br>
+                Click <strong>Get Valuation</strong> to generate<br>
+                an AI-powered price estimate in ₹ INR.
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-# ─── Footer ───
-st.markdown("""
-<div class="footer-text">
-    GharDaam v1.0 • Powered by MLflow + RandomForestRegressor • Model R² = 0.981
-</div>
-""", unsafe_allow_html=True)
+# Footer
+st.markdown('<div class="ft">HOUSE PRICE ENGINE · MLFLOW · RANDOM FOREST · R² 0.981</div>', unsafe_allow_html=True)
