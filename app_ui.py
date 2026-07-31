@@ -15,7 +15,7 @@ def format_inr(amount):
     if amount >= 1_00_00_000:
         return f"₹ {amount / 1_00_00_000:.2f} Cr"
     elif amount >= 1_00_000:
-        return f"₹ {amount / 1_00_000:.2f} L"
+        return f"₹ {amount / 1_00_00_000:.2f} L"
     else:
         return f"₹ {amount:,.0f}"
 
@@ -105,33 +105,21 @@ st.markdown("""
         margin-bottom: 20px;
     }
 
-    /* ── Inputs ── */
-    .stNumberInput input, .stTextInput input {
+    /* ── Inputs Fix ── */
+    .stNumberInput input, .stTextInput input, div[data-baseweb="select"] > div {
         background: var(--ghost) !important;
-        border: 1px solid transparent !important;
+        border: 1px solid var(--border) !important;
         border-radius: 10px !important;
         color: var(--text) !important;
         font-family: 'JetBrains Mono', monospace !important;
         font-size: 0.95rem !important;
         font-weight: 500 !important;
-        padding: 12px 16px !important;
-        transition: all 0.2s ease !important;
     }
-    .stNumberInput input:focus, .stTextInput input:focus {
-        background: var(--white) !important;
-        border: 1px solid var(--border) !important;
-        box-shadow: 0 0 0 4px rgba(0,0,0,0.04) !important;
-    }
-
-    /* ── Slider ── */
-    .stSlider [data-baseweb="slider"] {
-        margin-top: 0 !important;
-    }
-
-    /* ── Button ── */
+    
+    /* ── Fix Button Text Contrast ── */
     .stButton > button {
         background: var(--black) !important;
-        color: var(--white) !important;
+        color: #FFFFFF !important;
         font-family: 'Inter', sans-serif !important;
         font-weight: 600 !important;
         font-size: 0.95rem !important;
@@ -145,10 +133,11 @@ st.markdown("""
     }
     .stButton > button:hover {
         background: #333336 !important;
+        color: #FFFFFF !important;
         transform: scale(1.01) !important;
     }
-    .stButton > button:active {
-        transform: scale(0.98) !important;
+    .stButton > button p, .stButton > button span {
+        color: #FFFFFF !important;
     }
 
     /* ── Result ── */
@@ -270,7 +259,7 @@ with col_left:
         overall_cond = st.slider("Condition", 1, 10, 5)
 
     st.markdown('<div class="line"></div>', unsafe_allow_html=True)
-    predict_btn = st.button("Get Valuation →")
+    predict_btn = st.button("Get Valuation")
 
 with col_right:
     # API config hidden in expander
